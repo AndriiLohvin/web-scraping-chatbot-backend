@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from app.Database.Database import db
+from app.Database import db
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os

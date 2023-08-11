@@ -6,12 +6,14 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.document_loaders import CSVLoader, PyPDFLoader, TextLoader, Docx2txtLoader
 
 from dotenv import load_dotenv
 import os
 import pinecone
 import openai
 import tiktoken
+import time
 
 load_dotenv()
 tokenizer = tiktoken.get_encoding('cl100k_base')
@@ -52,6 +54,73 @@ def tiktoken_len(text):
         chunks, embedding=embeddings, index_name=index_name)
 
 
+def split_document(doc: Document):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=20,
+        length_function=tiktoken_len,
+        separators=["\n\n", "\n", " ", ""]
+    )
+    chunks = text_splitter.split_documents([doc])
+    return chunks
+
+
+def train_csv(filename: str):
+    start_time = time.time()
+    loader = CSVLoader(file_path=f"./train-data/{filename}")
+    data = loader.load()
+    total_content = ""
+    for d in data:
+        total_content += "\n\n" + d.page_content
+    doc = Document(page_content=total_content, metadata={"source": filename})
+    chunks = split_document(doc)
+    Pinecone.from_documents(
+        chunks, embeddings, index_name=index_name)
+
+    end_time = time.time()
+    print("Elapsed time: ", end_time - start_time)
+    return True
+
+
+def train_pdf(filename: str):
+    print("begin train_pdf")
+    start_time = time.time()
+    loader = PyPDFLoader(file_path=f"./train-data/{filename}")
+    documents = loader.load()
+    Pinecone.from_documents(
+        documents=documents,
+        embedding=embeddings,
+        index_name=index_name,
+    )
+    print("end pdf-loading")
+    end_time = time.time()
+    print("Elapsed time: ", end_time - start_time)
+    return True
+
+
+def train_txt(filename: str):
+    start_time = time.time()
+    loader = TextLoader(file_path=f"./train-data/{filename}")
+    documents = loader.load()
+    chunks = split_document(documents[0])
+    Pinecone.from_documents(
+        chunks, embeddings, index_name=index_name)
+    end_time = time.time()
+    print("Elapsed time: ", end_time - start_time)
+    return True
+
+
+def train_ms_word(filename: str):
+    start_time = time.time()
+    loader = Docx2txtLoader(file_path=f"./train-data/{filename}")
+    documents = loader.load()
+    chunks = split_document(documents[0])
+    Pinecone.from_documents(
+        chunks, embeddings, index_name=index_name)
+    end_time = time.time()
+    print("Elapsed time: ", end_time - start_time)
+
+
 def train_text():
     print("train-begin")
     with open("./data/data.txt", "r") as file:
@@ -65,8 +134,9 @@ def train_text():
     )
     chunks = text_splitter.split_documents([doc])
     Pinecone.from_documents(
-        chunks, embeddings, index_name=os.getenv("PINECONE_INDEX"))
+        chunks, embeddings, index_name=index_name)
     print("train-end")
+
 
 
 context = ""
@@ -75,7 +145,7 @@ context = ""
 def get_context(msg: str):
     print("message" + msg)
     db = Pinecone.from_existing_index(
-        index_name=os.getenv("PINECONE_INDEX"), embedding=embeddings)
+        index_name=index_name, embedding=embeddings)
     results = db.similarity_search(msg, k=4)
     print("results-size: " + str(len(results)))
     global context

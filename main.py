@@ -5,7 +5,7 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import app.Utils.pinecone as pc
 
-# pc.train_text()
+pc.train_text()
 
 app = FastAPI()
 

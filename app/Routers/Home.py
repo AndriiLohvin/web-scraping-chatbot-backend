@@ -1,25 +1,52 @@
 import shutil
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form
-from app.Utils.pinecone import get_answer, get_context, train_csv, train_pdf, train_txt, train_ms_word, delete_all_data, set_prompt, delete_data_by_metadata
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File, Form
+from app.Utils.pinecone import get_answer, get_context, train_csv, train_pdf, train_txt, train_url, train_ms_word, delete_all_data, set_prompt, delete_data_by_metadata
+from app.Models.ChatbotModel import add_page, add_file, add_new_chatbot, find_all_chatbots, remove_chatbot, find_chatbot_by_id
+from app.Models.ChatbotModel import ChatBotIdModel, User
+from app.Utils.web_scraping import extract_content_from_url
+
+from app.Utils.Auth import get_current_user
 from fastapi.responses import StreamingResponse
+from typing import Annotated
 import os
 
 router = APIRouter()
 
 
-# @router.post("/addCSVFiles")
-# def addCSVFiles(file: UploadFile = File(...)):
-#     if file.filename.endswith(".csv") == False:
-#       raise HTTPException(
-#         status_code=500, detail="Only support csv file")
-#     destination_directory = "./app/training-files/"
-#     destination_file_path = os.path.join(destination_directory, file.filename)
-#     os.makedirs(destination_directory, exist_ok=True)
-#     with open(destination_file_path, "wb") as destination_file:
-#         shutil.copyfileobj(file.file, destination_file)
-#     train_file(file.filename)
-
 supported_file_extensions = [".csv", ".pdf", ".txt", ".doc", ".docx"]
+
+
+@router.post("/add-new-chatbot")
+def add_new_chatbot_api(user: Annotated[User, Depends(get_current_user)], name: str = Form(...)):
+    try:
+        return add_new_chatbot(email=user["email"], name=name)
+    except Exception as e:
+        raise e
+    
+
+@router.post("/find-pages-by-id")
+def find_pages(id: ChatBotIdModel, user: Annotated[User, Depends(get_current_user)]):
+    try:
+        result = find_chatbot_by_id(id.id)
+        return result.pages
+    except Exception as e:
+        raise e
+
+@router.post("/extract-content")
+def add_new_chatbot_api(user: Annotated[User, Depends(get_current_user)], link: str = Form(...)):
+    try:
+        return extract_content_from_url(link)
+    except Exception as e:
+        raise e
+
+@router.post("/add-page")
+def add_page_api(user: Annotated[User, Depends(get_current_user)], id: str = Form(...), url: str = Form(...)):
+    try:
+        add_page(id, url)
+        train_url(url, id)
+        return True
+    except Exception as e:
+        raise e
 
 
 @router.post("/add-training-file")
@@ -27,7 +54,7 @@ def add_training_file_api(file: UploadFile = File(...)):
     extension = os.path.splitext(file.filename)[1]
     if extension not in supported_file_extensions:
         raise HTTPException(
-            status_code=500, detail="Only support csv file")
+            status_code=500, detail="Invalid file type!")
     # print("valid filetype")
     try:
         # save file to server
@@ -78,9 +105,11 @@ def clear_database():
     delete_all_data()
     return True
 
+
 @router.post("/clear-database-by-metadata")
 def clear_database_by_metadata(filename: str = Form(...)):
     delete_data_by_metadata(filename)
+
 
 @router.post("/set-prompt")
 def set_prompt_by_user(prompt: str = Form(...)):

@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.Database import db
+from app.Models.ChatbotModel import User
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
@@ -28,7 +29,8 @@ def get_password_hash(password):
 
 
 def get_user(email: str):
-    return UserDB.find_one({"email": email})
+    user = UserDB.find_one({"email": email})
+    return user
 
 
 def authenticate_user(email: str, password: str):

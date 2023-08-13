@@ -7,6 +7,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import CSVLoader, PyPDFLoader, TextLoader, Docx2txtLoader
+from app.Utils.web_scraping import extract_content_from_url
 
 from dotenv import load_dotenv
 import os
@@ -175,6 +176,20 @@ def train_text():
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name)
     print("train-end")
+
+def train_url(url: str, namespace: str):
+    content = extract_content_from_url(url)
+    doc = Document(page_content=content, metadata={"source": url})
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=20,
+        length_function=tiktoken_len,
+        separators=["\n\n", "\n", " ", ""]
+    )
+    chunks = text_splitter.split_documents([doc])
+    Pinecone.from_documents(
+        chunks, embeddings, index_name=index_name, namespace=namespace)
+
 
 
 def set_prompt(new_prompt: str):

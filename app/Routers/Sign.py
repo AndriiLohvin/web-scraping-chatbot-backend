@@ -32,6 +32,7 @@ def signup(firstname: str = Form(...), lastname: str = Form(...), email: str = F
     if not user:
         UserDB.insert_one({"username": username, "email": email,
                            "hashed_password": password_in_db})
+        return True
     else:
-        raise ValueError("That email alrealy exist")
-    return True
+        return "That email alrealy exist"
+        # raise ValueError("That email alrealy exist")

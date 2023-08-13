@@ -1,6 +1,6 @@
 import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form
-from app.Utils.pinecone import get_answer, get_context, train_csv, train_pdf, train_txt, train_ms_word
+from app.Utils.pinecone import get_answer, get_context, train_csv, train_pdf, train_txt, train_ms_word, delete_all_data, set_prompt, delete_data_by_metadata
 from fastapi.responses import StreamingResponse
 import os
 
@@ -20,6 +20,7 @@ router = APIRouter()
 #     train_file(file.filename)
 
 supported_file_extensions = [".csv", ".pdf", ".txt", ".doc", ".docx"]
+
 
 @router.post("/add-training-file")
 def add_training_file_api(file: UploadFile = File(...)):
@@ -70,3 +71,17 @@ def answer_to_user_question(msg: str = Form(...)):
         return StreamingResponse(get_answer(msg), media_type='text/event-stream')
     except Exception as e:
         raise e
+
+
+@router.post("/clear-database")
+def clear_database():
+    delete_all_data()
+    return True
+
+@router.post("/clear-database-by-metadata")
+def clear_database_by_metadata(filename: str = Form(...)):
+    delete_data_by_metadata(filename)
+
+@router.post("/set-prompt")
+def set_prompt_by_user(prompt: str = Form(...)):
+    set_prompt(prompt)

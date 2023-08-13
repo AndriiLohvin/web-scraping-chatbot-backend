@@ -14,18 +14,32 @@ import pinecone
 import openai
 import tiktoken
 import time
+# from pinecone import Index
 
 load_dotenv()
 tokenizer = tiktoken.get_encoding('cl100k_base')
 
+api_key = os.getenv('PINECONE_API_KEY')
+
 pinecone.init(
-    api_key=os.getenv('PINECONE_API_KEY'),  # find at app.pinecone.io
+    api_key=api_key,  # find at app.pinecone.io
     environment=os.getenv('PINECONE_ENV'),  # next to api key in console
 )
 
 index_name = os.getenv('PINECONE_INDEX')
 embeddings = OpenAIEmbeddings()
 similarity_min_value = 0.5
+default_prompt = """
+    You will act as a legal science expert.
+    Please research this context deeply answer questions based on  given context as well as your knowledge.
+    If you can't find accurate answer, please reply similar answer to this question or you can give related information to given questions.
+    The more you can, the more you shouldn't say you don't know or this context doesn't contain accurate answer.
+    If only there is never answer related to question, kindly reply you don't know exact answer.
+    Don't output too many answers.
+    Below is context you can refer to.
+"""
+prompt = default_prompt
+context = ""
 
 
 def tiktoken_len(text):
@@ -36,22 +50,36 @@ def tiktoken_len(text):
     return len(tokens)
 
 
-# def train_file(filename: str):
-    destination_directory = "./app/training-files/"
-    destination_file_path = os.path.join(destination_directory, filename)
+def delete_all_data():
+    # Initialize Pinecone client
+    pinecone.init(api_key=api_key, environment=os.getenv('PINECONE_ENV'))
 
-    loader = CSVLoader(file_path=destination_file_path)
-    data = loader.load()
-    context = ''
-    for d in data:
-        context += d.page_content
-    doc = Document(page_content=context, metadata={"source": filename})
-    text_splitter = CharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=0, length_function=tiktoken_len,)
-    chunks = text_splitter.split_documents([doc])
+    # # Retrieve the index
+    # index = pinecone.Index(index_name="your_index_name")
 
-    Pinecone.from_documents(
-        chunks, embedding=embeddings, index_name=index_name)
+    # # Delete all data from the index
+    # index.delete_index()
+
+    # # Disconnect from Pinecone
+    # pinecone.init()
+    # pinecone.delete_index("example-index")
+    print(pinecone.list_indexes())
+    if index_name in pinecone.list_indexes():
+        # Delete the index
+        pinecone.delete_index(index_name)
+        print("Index successfully deleted.")
+    else:
+        print("Index not found.")
+
+    pinecone.create_index(
+        index_name,
+        dimension=1536,
+        metric='cosine',
+        pods=1,
+        replicas=1,
+        pod_type='p1.x1'
+    )
+    print("new: ", pinecone.list_indexes())
 
 
 def split_document(doc: Document):
@@ -87,8 +115,15 @@ def train_pdf(filename: str):
     start_time = time.time()
     loader = PyPDFLoader(file_path=f"./train-data/{filename}")
     documents = loader.load()
+    # chunks = split_document(documents)
+    # print(type(documents))
+    total_content = ""
+    for document in documents:
+        total_content += "\n\n" + document.page_content
+    doc = Document(page_content=total_content, metadata={"source": filename})
+    chunks = split_document(doc)
     Pinecone.from_documents(
-        documents=documents,
+        documents=chunks,
         embedding=embeddings,
         index_name=index_name,
     )
@@ -102,7 +137,11 @@ def train_txt(filename: str):
     start_time = time.time()
     loader = TextLoader(file_path=f"./train-data/{filename}")
     documents = loader.load()
-    chunks = split_document(documents[0])
+    total_content = ""
+    for document in documents:
+        total_content += "\n\n" + document.page_content
+    doc = Document(page_content=total_content, metadata={"source": filename})
+    chunks = split_document(doc)
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name)
     end_time = time.time()
@@ -138,8 +177,9 @@ def train_text():
     print("train-end")
 
 
-
-context = ""
+def set_prompt(new_prompt: str):
+    global prompt
+    prompt = new_prompt
 
 
 def get_context(msg: str):
@@ -147,7 +187,6 @@ def get_context(msg: str):
     db = Pinecone.from_existing_index(
         index_name=index_name, embedding=embeddings)
     results = db.similarity_search(msg, k=4)
-    print("results-size: " + str(len(results)))
     global context
     context = ""
     for result in results:
@@ -156,24 +195,12 @@ def get_context(msg: str):
 
 
 def get_answer(msg: str):
-    # db = Pinecone.from_existing_index(
-    #     index_name=os.getenv("PINECONE_INDEX"), embedding=embeddings)
-    # results = db.similarity_search(msg, k=4)
-    # print("results-size: " + str(len(results)))
-    # context = ""
-    # for result in results:
-    #     context += f"\n\n{result.page_content}"
     global context
-    # print("m:", msg)
-    # print(context)
+    global prompt
     instructor = f"""
-        You will act as a legal science expert.
-        Please research this context deeply answer questions based on  given context as well as your knowledge.
-        If you can't find accurate answer, please reply similar answer to this question or you can give related information to given questions.
+        {prompt}
         -----------------------
-        This is context you can refer to.
         {context}
-        -----------------------
     """
     try:
         response = openai.ChatCompletion.create(
@@ -194,3 +221,15 @@ def get_answer(msg: str):
 
     # print(response)
     # print(response.choices[0].message.content)
+
+
+def delete_data_by_metadata(filename: str):
+    print(filename)
+
+    index = pinecone.Index(index_name=index_name)
+    query_response = index.delete(
+        filter={
+            "source": {"$eq": filename},
+        }
+    )
+    print(query_response)

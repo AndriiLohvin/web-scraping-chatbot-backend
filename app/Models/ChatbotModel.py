@@ -7,9 +7,9 @@ from bson.objectid import ObjectId
 ChatbotsDB = db.chatbots
 
 
-
 class ChatBotIdModel(BaseModel):
     id: str
+
 
 class Chatbot(BaseModel):
     name: str
@@ -22,6 +22,7 @@ class AskQuestionModel(BaseModel):
     usermsg: str
     id: str
     chatlogId: str
+
 
 class UserForClient(BaseModel):
     username: str
@@ -57,8 +58,13 @@ def find_chatbot_by_id(id: str):
 
 def find_all_chatbots(email: str):
     result = ChatbotsDB.find({"email": email})
-    json_data = json_util.dumps(result)
-    return json_data
+    all_bots = []
+    for bot in result:
+        bot["_id"] = str(bot["_id"])
+        all_bots.append(bot)
+    for bot in all_bots:
+        print(bot)
+    return all_bots
 
 
 def remove_chatbot(id: str, email: str):

@@ -11,7 +11,7 @@ import os
 
 load_dotenv()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/signin")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 UserDB = db.user

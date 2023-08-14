@@ -94,7 +94,7 @@ def split_document(doc: Document):
     return chunks
 
 
-def train_csv(filename: str):
+def train_csv(filename: str, namespace: str):
     start_time = time.time()
     loader = CSVLoader(file_path=f"./train-data/{filename}")
     data = loader.load()
@@ -104,14 +104,14 @@ def train_csv(filename: str):
     doc = Document(page_content=total_content, metadata={"source": filename})
     chunks = split_document(doc)
     Pinecone.from_documents(
-        chunks, embeddings, index_name=index_name)
+        chunks, embeddings, index_name=index_name, namespace=namespace)
 
     end_time = time.time()
     print("Elapsed time: ", end_time - start_time)
     return True
 
 
-def train_pdf(filename: str):
+def train_pdf(filename: str, namespace: str):
     print("begin train_pdf")
     start_time = time.time()
     loader = PyPDFLoader(file_path=f"./train-data/{filename}")
@@ -127,6 +127,7 @@ def train_pdf(filename: str):
         documents=chunks,
         embedding=embeddings,
         index_name=index_name,
+        namespace=namespace
     )
     print("end pdf-loading")
     end_time = time.time()
@@ -134,7 +135,7 @@ def train_pdf(filename: str):
     return True
 
 
-def train_txt(filename: str):
+def train_txt(filename: str, namespace: str):
     start_time = time.time()
     loader = TextLoader(file_path=f"./train-data/{filename}")
     documents = loader.load()
@@ -144,19 +145,19 @@ def train_txt(filename: str):
     doc = Document(page_content=total_content, metadata={"source": filename})
     chunks = split_document(doc)
     Pinecone.from_documents(
-        chunks, embeddings, index_name=index_name)
+        chunks, embeddings, index_name=index_name, namespace=namespace)
     end_time = time.time()
     print("Elapsed time: ", end_time - start_time)
     return True
 
 
-def train_ms_word(filename: str):
+def train_ms_word(filename: str, namespace: str):
     start_time = time.time()
     loader = Docx2txtLoader(file_path=f"./train-data/{filename}")
     documents = loader.load()
     chunks = split_document(documents[0])
     Pinecone.from_documents(
-        chunks, embeddings, index_name=index_name)
+        chunks, embeddings, index_name=index_name, namespace=namespace)
     end_time = time.time()
     print("Elapsed time: ", end_time - start_time)
 
@@ -197,10 +198,10 @@ def set_prompt(new_prompt: str):
     prompt = new_prompt
 
 
-def get_context(msg: str):
+def get_context(msg: str, namespace: str, email: str):
     print("message" + msg)
     db = Pinecone.from_existing_index(
-        index_name=index_name, embedding=embeddings)
+        index_name=index_name, namespace=namespace, embedding=embeddings)
     results = db.similarity_search(msg, k=4)
     global context
     context = ""
@@ -209,7 +210,7 @@ def get_context(msg: str):
     return context
 
 
-def get_answer(msg: str):
+def get_answer(msg: str, namespace: str, email: str):
     global context
     global prompt
     instructor = f"""

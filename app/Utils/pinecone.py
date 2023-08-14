@@ -143,7 +143,9 @@ def train_txt(filename: str, namespace: str):
     for document in documents:
         total_content += "\n\n" + document.page_content
     doc = Document(page_content=total_content, metadata={"source": filename})
+    print(filename)
     chunks = split_document(doc)
+    print("namespace: ", namespace)
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name, namespace=namespace)
     end_time = time.time()
@@ -156,6 +158,7 @@ def train_ms_word(filename: str, namespace: str):
     loader = Docx2txtLoader(file_path=f"./train-data/{filename}")
     documents = loader.load()
     chunks = split_document(documents[0])
+    
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name, namespace=namespace)
     end_time = time.time()
@@ -174,6 +177,7 @@ def train_text():
         separators=["\n\n", "\n", " ", ""]
     )
     chunks = text_splitter.split_documents([doc])
+    
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name)
     print("train-end")
@@ -239,13 +243,12 @@ def get_answer(msg: str, namespace: str, email: str):
     # print(response.choices[0].message.content)
 
 
-def delete_data_by_metadata(filename: str):
-    print(filename)
-
+def delete_data_by_metadata(filename: str, namespace: str):
     index = pinecone.Index(index_name=index_name)
     query_response = index.delete(
+        namespace = namespace,
         filter={
-            "source": {"$eq": filename},
+            "source": f"{namespace}-{filename}"
         }
     )
     print(query_response)

@@ -41,9 +41,9 @@ def remove_chatbot_api(user: Annotated[User, Depends(get_current_user)], id: str
 
 
 @router.post("/find-pages-by-id")
-def find_pages(id: ChatBotIdModel, user: Annotated[User, Depends(get_current_user)]):
+def find_pages(user: Annotated[User, Depends(get_current_user)], id: str = Form(...)):
     try:
-        result = find_chatbot_by_id(id.id)
+        result = find_chatbot_by_id(id)
         return result.pages
     except Exception as e:
         raise e
@@ -125,8 +125,8 @@ def clear_database():
 
 
 @router.post("/clear-database-by-metadata")
-def clear_database_by_metadata(filename: str = Form(...)):
-    delete_data_by_metadata(filename)
+def clear_database_by_metadata(filename: str = Form(...), id: str = Form(...)):
+    delete_data_by_metadata(filename, id)
 
 
 @router.post("/set-prompt")

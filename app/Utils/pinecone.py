@@ -158,7 +158,7 @@ def train_ms_word(filename: str, namespace: str):
     loader = Docx2txtLoader(file_path=f"./train-data/{filename}")
     documents = loader.load()
     chunks = split_document(documents[0])
-    
+
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name, namespace=namespace)
     end_time = time.time()
@@ -172,15 +172,16 @@ def train_text():
     doc = Document(page_content=content, metadata={"source": "data1.txt"})
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1500,
-        chunk_overlap=400,
+        chunk_overlap=100,
         length_function=tiktoken_len,
         separators=["\n\n", "\n", " ", ""]
     )
     chunks = text_splitter.split_documents([doc])
-    
+
     Pinecone.from_documents(
         chunks, embeddings, index_name=index_name)
     print("train-end")
+
 
 def train_url(url: str, namespace: str):
     content = extract_content_from_url(url)
@@ -196,7 +197,6 @@ def train_url(url: str, namespace: str):
         chunks, embeddings, index_name=index_name, namespace=namespace)
 
 
-
 def set_prompt(new_prompt: str):
     global prompt
     prompt = new_prompt
@@ -206,11 +206,17 @@ def get_context(msg: str, namespace: str, email: str):
     print("message" + msg)
     db = Pinecone.from_existing_index(
         index_name=index_name, namespace=namespace, embedding=embeddings)
+    web_db = Pinecone.from_existing_index(
+        index_name=index_name, embedding=embeddings)
     results = db.similarity_search(msg, k=4)
+    web_results = web_db.similarity_search(msg, k=4)
     global context
     context = ""
+    for web_result in web_results:
+        context += f"\n\n{web_result.page_content}"
     for result in results:
         context += f"\n\n{result.page_content}"
+    print(len(context)/4)
     return context
 
 
@@ -246,7 +252,7 @@ def get_answer(msg: str, namespace: str, email: str):
 def delete_data_by_metadata(filename: str, namespace: str):
     index = pinecone.Index(index_name=index_name)
     query_response = index.delete(
-        namespace = namespace,
+        namespace=namespace,
         filter={
             "source": f"{namespace}-{filename}"
         }

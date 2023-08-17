@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 import app.Routers.Sign as Sign
-import app.Routers.Home as Home
+import app.Routers.Chatbot as Chatbot
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import app.Utils.pinecone as pc
@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(Sign.router, tags=["sign"], prefix="/auth")
-app.include_router(Home.router, tags=["home"])
+app.include_router(Chatbot.router, tags=["Chatbot"])
 
 
 @app.get("/")
@@ -25,4 +25,4 @@ async def root():
     return {"message": "Hello World"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=7000, reload=True)

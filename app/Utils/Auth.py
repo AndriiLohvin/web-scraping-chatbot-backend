@@ -30,14 +30,16 @@ def get_password_hash(password):
 
 def get_user(email: str):
     user = UserDB.find_one({"email": email})
-    return user
+    if not user:
+        return None
+    return User(**user)
 
 
 def authenticate_user(email: str, password: str):
     user = get_user(email)
     if not user:
         return False
-    if not verify_password(password, user["hashed_password"]):
+    if not verify_password(password, user.hashed_password):
         return False
     return user
 

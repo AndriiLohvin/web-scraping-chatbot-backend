@@ -3,20 +3,30 @@ from app.Database import db
 from typing import List
 from bson import json_util
 from bson.objectid import ObjectId
-
+from fastapi import Form
 ChatbotsDB = db.chatbots
 
 
 class ChatBotIdModel(BaseModel):
     id: str
 
+class AddNewBotModel(BaseModel):
+    name: str = ""
+    description: str = ""
+    welcomeMessage: str = "Hello friend! How can I help you today?"
+    model: str = "gpt-4"
+    language: str = "English"
+    tone: str = "Friendly"
+    format: str = "FAQ"
+    style: str = "Friendly"
+    length: str = "50 words"
+    password: str = ""
 
-class Chatbot(BaseModel):
-    name: str
-    email: str
-    pages: List
-    files: List
 
+class Chatbot(AddNewBotModel):
+    email: str = ""
+    pages: List = []
+    files: List = []
 
 class AskQuestionModel(BaseModel):
     usermsg: str
@@ -30,12 +40,12 @@ class UserForClient(BaseModel):
 
 
 class User(UserForClient):
-    password: str
+    hashed_password: str
 
 
-def add_new_chatbot(name: str, email: str):
-    print(name, email)
-    new_chatbot = Chatbot(name=name, email=email, pages=[], files=[])
+def add_new_chatbot(email: str, botmodel: AddNewBotModel):
+    new_chatbot = Chatbot(email=email, pages=[], files=[], **botmodel.dict())
+    # print(new_chatbot.name, new_chatbot.description, new_chatbot.language)
     result = ChatbotsDB.insert_one(new_chatbot.dict())
     return str(result.inserted_id)
 

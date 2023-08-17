@@ -16,10 +16,10 @@ def signin_for_access_token(email: str = Form(...), password: str = Form(...)):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = create_access_token(data={"sub": user['email']})
+    access_token = create_access_token(data={"sub": user.email})
     print(access_token)
-    user_to_return = {'username': user['username'],
-                      'email': user['email'], 'hashed_password': user['hashed_password']}
+    user_to_return = {'username': user.username,
+                      'email': user.email, 'hashed_password': user.hashed_password}
     return {"access_token": access_token, "token_type": "bearer", "user": user_to_return}
 
 

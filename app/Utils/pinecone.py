@@ -8,6 +8,7 @@ from langchain.vectorstores import Pinecone
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import CSVLoader, PyPDFLoader, TextLoader, Docx2txtLoader
 from app.Utils.web_scraping import extract_content_from_url
+from app.Models.ChatbotModel import Chatbot
 
 from dotenv import load_dotenv
 import os
@@ -64,7 +65,7 @@ def delete_all_data():
     # # Disconnect from Pinecone
     # pinecone.init()
     # pinecone.delete_index("example-index")
-    print(pinecone.list_indexes())
+    # print(pinecone.list_indexes())
     if index_name in pinecone.list_indexes():
         # Delete the index
         pinecone.delete_index(index_name)
@@ -208,8 +209,8 @@ def get_context(msg: str, namespace: str, email: str):
         index_name=index_name, namespace=namespace, embedding=embeddings)
     web_db = Pinecone.from_existing_index(
         index_name=index_name, embedding=embeddings)
-    results = db.similarity_search(msg, k=4)
-    web_results = web_db.similarity_search(msg, k=4)
+    results = db.similarity_search(msg, k=2)
+    web_results = web_db.similarity_search(msg, k=2)
     global context
     context = ""
     for web_result in web_results:
@@ -220,17 +221,22 @@ def get_context(msg: str, namespace: str, email: str):
     return context
 
 
-def get_answer(msg: str, namespace: str, email: str):
+def get_answer(msg: str, namespace: str, email: str, current_bot: Chatbot):
     global context
     global prompt
     instructor = f"""
+        You should answer all questions in {current_bot.language} as long as not mentioned in below prompt.
+        And your tone should be {current_bot.tone} and your writing format should be {current_bot.format} and your writing style should be {current_bot.style}.
+        Your answer should contains at most {current_bot.length} words as possible as you can.
+        Don't output answer of more than {current_bot.length} of words.
+        
         {prompt}
         -----------------------
         {context}
     """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model=current_bot.model,
             max_tokens=2000,
             messages=[
                 {'role': 'system', 'content': instructor},

@@ -9,6 +9,8 @@ ChatbotsDB = db.chatbots
 
 class ChatBotIdModel(BaseModel):
     id: str
+    log_id: str
+
 
 class AddNewBotModel(BaseModel):
     name: str = ""
@@ -21,12 +23,22 @@ class AddNewBotModel(BaseModel):
     style: str = "Friendly"
     length: str = "50 words"
     password: str = ""
+    contextBehavior: str = ""
+    behaviorPrompt: str = ""
+    fighterPrompt: str = ""
+    appendedPrompt: str = ""
+    creativity: float = 0.3
+    conversationSaver: bool = False
+    lastChatLogId: str = ""
+    sourceDiscloser: bool = False
+    HTMLInterpreter: bool = False
 
 
 class Chatbot(AddNewBotModel):
     email: str = ""
     pages: List = []
     files: List = []
+
 
 class AskQuestionModel(BaseModel):
     usermsg: str
@@ -63,7 +75,13 @@ def add_file(id: str, filename: str):
 
 def find_chatbot_by_id(id: str):
     result = ChatbotsDB.find_one({"_id": ObjectId(id)})
+    print("result", result)
     return Chatbot(**result)
+
+
+def update_chatbot_by_id(id: str, log_id: str):
+    ChatbotsDB.update_one({"_id": ObjectId(id)}, {
+                          "$set": {"lastChatLogId": log_id}})
 
 
 def find_all_chatbots(email: str):

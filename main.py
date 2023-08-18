@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import app.Routers.Sign as Sign
 import app.Routers.Chatbot as Chatbot
+import app.Routers.ChatLog as ChatLog
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import app.Utils.pinecone as pc
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 app.include_router(Sign.router, tags=["sign"], prefix="/auth")
 app.include_router(Chatbot.router, tags=["Chatbot"])
+app.include_router(ChatLog.router, tags=["ChatLog"])
 
 
 @app.get("/")

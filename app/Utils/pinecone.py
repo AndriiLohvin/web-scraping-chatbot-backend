@@ -9,6 +9,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import CSVLoader, PyPDFLoader, TextLoader, Docx2txtLoader
 from app.Utils.web_scraping import extract_content_from_url
 from app.Models.ChatbotModel import Chatbot
+from app.Models.ChatLogModel import Message, add_new_message as add_new_message_to_db
+
 
 from dotenv import load_dotenv
 import os
@@ -97,7 +99,7 @@ def split_document(doc: Document):
 
 def train_csv(filename: str, namespace: str):
     start_time = time.time()
-    loader = CSVLoader(file_path=f"./train-data/{filename}")
+    loader = CSVLoader(file_path=f"./train-data/{namespace}-{filename}")
     data = loader.load()
     total_content = ""
     for d in data:
@@ -115,7 +117,7 @@ def train_csv(filename: str, namespace: str):
 def train_pdf(filename: str, namespace: str):
     print("begin train_pdf")
     start_time = time.time()
-    loader = PyPDFLoader(file_path=f"./train-data/{filename}")
+    loader = PyPDFLoader(file_path=f"./train-data/{namespace}-{filename}")
     documents = loader.load()
     # chunks = split_document(documents)
     # print(type(documents))
@@ -138,7 +140,7 @@ def train_pdf(filename: str, namespace: str):
 
 def train_txt(filename: str, namespace: str):
     start_time = time.time()
-    loader = TextLoader(file_path=f"./train-data/{filename}")
+    loader = TextLoader(file_path=f"./train-data/{namespace}-{filename}")
     documents = loader.load()
     total_content = ""
     for document in documents:
@@ -156,7 +158,7 @@ def train_txt(filename: str, namespace: str):
 
 def train_ms_word(filename: str, namespace: str):
     start_time = time.time()
-    loader = Docx2txtLoader(file_path=f"./train-data/{filename}")
+    loader = Docx2txtLoader(file_path=f"./train-data/{namespace}-{filename}")
     documents = loader.load()
     chunks = split_document(documents[0])
 
@@ -166,22 +168,22 @@ def train_ms_word(filename: str, namespace: str):
     print("Elapsed time: ", end_time - start_time)
 
 
-def train_text():
-    print("train-begin")
-    with open("./data/data.txt", "r") as file:
-        content = file.read()
-    doc = Document(page_content=content, metadata={"source": "data1.txt"})
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1500,
-        chunk_overlap=100,
-        length_function=tiktoken_len,
-        separators=["\n\n", "\n", " ", ""]
-    )
-    chunks = text_splitter.split_documents([doc])
+# def train_text():
+#     print("train-begin")
+#     with open("./data/data.txt", "r") as file:
+#         content = file.read()
+#     doc = Document(page_content=content, metadata={"source": "data1.txt"})
+#     text_splitter = RecursiveCharacterTextSplitter(
+#         chunk_size=1500,
+#         chunk_overlap=100,
+#         length_function=tiktoken_len,
+#         separators=["\n\n", "\n", " ", ""]
+#     )
+#     chunks = text_splitter.split_documents([doc])
 
-    Pinecone.from_documents(
-        chunks, embeddings, index_name=index_name)
-    print("train-end")
+#     Pinecone.from_documents(
+#         chunks, embeddings, index_name=index_name)
+#     print("train-end")
 
 
 def train_url(url: str, namespace: str):
@@ -203,53 +205,83 @@ def set_prompt(new_prompt: str):
     prompt = new_prompt
 
 
-def get_context(msg: str, namespace: str, email: str):
+def get_context(msg: str, namespace: str, email: str, current_bot: Chatbot):
     print("message" + msg)
-    db = Pinecone.from_existing_index(
-        index_name=index_name, namespace=namespace, embedding=embeddings)
-    web_db = Pinecone.from_existing_index(
-        index_name=index_name, embedding=embeddings)
-    results = db.similarity_search(msg, k=2)
-    web_results = web_db.similarity_search(msg, k=2)
+    matching_metadata = []
+    if current_bot.contextBehavior != "gpt":
+        print("here")
+        db = Pinecone.from_existing_index(
+            index_name=index_name, namespace=namespace, embedding=embeddings)
+        results = db.similarity_search(msg, k=2)
+        for result in results:
+            print("embedding_id: ", result.metadata['source'])
+            matching_metadata.append(result.metadata['source'])
+    matching_metadata = list(set(matching_metadata))
+    # web_db = Pinecone.from_existing_index(
+    #     index_name=index_name, embedding=embeddings)
+    # web_results = web_db.similarity_search(msg, k=2)
     global context
     context = ""
-    for web_result in web_results:
-        context += f"\n\n{web_result.page_content}"
+    # for web_result in web_results:
+    #     context += f"\n\n{web_result.page_content}"
     for result in results:
         context += f"\n\n{result.page_content}"
     print(len(context)/4)
-    return context
+    if current_bot.sourceDiscloser == False:
+        matching_metadata = []
+    return {"context": context, "metadata": matching_metadata}
 
 
-def get_answer(msg: str, namespace: str, email: str, current_bot: Chatbot):
+def get_answer(msg: str, namespace: str, log_id: str, email: str, current_bot: Chatbot):
     global context
     global prompt
+
+    contextBehavior = """You shouldn't answer with your own knowledge.
+        You should answer only based on the context given below.
+        Even if you can't find similar answer in the context given, you shouldn't answer with your knowledge.
+    """
+
+    contextBehavior = contextBehavior if current_bot.contextBehavior == "file" else ""
+
     instructor = f"""
         You should answer all questions in {current_bot.language} as long as not mentioned in below prompt.
         And your tone should be {current_bot.tone} and your writing format should be {current_bot.format} and your writing style should be {current_bot.style}.
         Your answer should contains at most {current_bot.length} words as possible as you can.
         Don't output answer of more than {current_bot.length} of words.
         
+        You will act as mentioned below.
+        {current_bot.behaviorPrompt}
+        
+        {contextBehavior}
+        
         {prompt}
         -----------------------
         {context}
     """
+    final = ""
     try:
         response = openai.ChatCompletion.create(
             model=current_bot.model,
             max_tokens=2000,
             messages=[
                 {'role': 'system', 'content': instructor},
-                {'role': 'user', 'content': msg}
+                {'role': 'user', 'content': msg + current_bot.appendedPrompt}
             ],
+            temperature=current_bot.creativity,
             stream=True
         )
         for chunk in response:
             if 'content' in chunk.choices[0].delta:
                 string = chunk.choices[0].delta.content
                 yield string
+                final += string
     except Exception as e:
         print(e)
+        
+    add_new_message_to_db(logId=log_id, botId=namespace,
+                          msg=Message(content=msg, role="user"), email=email)
+    add_new_message_to_db(logId=log_id, botId=namespace,
+                          msg=Message(content=final, role="assistant"), email=email)
 
     # print(response)
     # print(response.choices[0].message.content)
@@ -260,7 +292,7 @@ def delete_data_by_metadata(filename: str, namespace: str):
     query_response = index.delete(
         namespace=namespace,
         filter={
-            "source": f"{namespace}-{filename}"
+            "source": filename
         }
     )
     print(query_response)

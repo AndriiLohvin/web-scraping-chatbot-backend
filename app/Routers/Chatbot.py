@@ -1,7 +1,7 @@
 import shutil
 from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File, Form, Body
 from app.Utils.pinecone import get_answer, get_context, train_csv, train_pdf, train_txt, train_url, train_ms_word, delete_all_data, set_prompt, delete_data_by_metadata
-from app.Models.ChatbotModel import add_page, add_file, add_new_chatbot, find_all_chatbots, remove_chatbot, find_chatbot_by_id
+from app.Models.ChatbotModel import add_page, add_file, add_new_chatbot, find_all_chatbots, remove_chatbot, find_chatbot_by_id, update_chatbot_by_id
 from app.Models.ChatbotModel import ChatBotIdModel, User, AddNewBotModel, Chatbot
 from app.Utils.web_scraping import extract_content_from_url
 
@@ -14,7 +14,8 @@ router = APIRouter()
 
 
 supported_file_extensions = [".csv", ".pdf", ".txt", ".doc", ".docx"]
-# current_bot = Chatbot()
+current_bot = Chatbot()
+
 
 @router.post("/add-new-chatbot")
 async def add_new_chatbot_api(user: Annotated[User, Depends(get_current_user)], model: AddNewBotModel):
@@ -31,11 +32,14 @@ def find_all_chatbots_api(user: Annotated[User, Depends(get_current_user)]):
     except Exception as e:
         raise e
 
+
 @router.post("/find-chatbot-by-id")
 def find_chatbot_by_id_api(id: ChatBotIdModel, user: Annotated[User, Depends(get_current_user)]):
-    # global current_bot
+    global current_bot
     try:
+        print("logid", id.log_id)
         current_bot = find_chatbot_by_id(id.id)
+        update_chatbot_by_id(id.id, id.log_id)
         return current_bot
     except Exception as e:
         raise e
@@ -93,13 +97,13 @@ def add_training_file_api(user: Annotated[User, Depends(get_current_user)], file
 
         # add training file
         if extension == ".csv":
-            train_csv(f"{bot_id}-{file.filename}", bot_id)
+            train_csv(file.filename, bot_id)
         elif extension == ".pdf":
-            train_pdf(f"{bot_id}-{file.filename}", bot_id)
+            train_pdf(file.filename, bot_id)
         elif extension == ".txt":
-            train_txt(f"{bot_id}-{file.filename}", bot_id)
+            train_txt(file.filename, bot_id)
         elif extension == ".docx":
-            train_ms_word(f"{bot_id}-{file.filename}", bot_id)
+            train_ms_word(file.filename, bot_id)
         print("end-training")
         add_file(bot_id, file.filename)
     except Exception as e:
@@ -111,20 +115,22 @@ def add_training_file_api(user: Annotated[User, Depends(get_current_user)], file
 @router.post("/similar-context")
 def find_similar_context(user: Annotated[User, Depends(get_current_user)], msg: str = Form(...), bot_id: str = Form(...)):
     print("msg: " + str(msg))
+    global current_bot
     if len(msg.strip()) == 0:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No Input Message",
         )
-    return get_context(msg, bot_id, user.email)
+    return get_context(msg, bot_id, user.email, current_bot)
 
 
 @router.post("/user-question")
-def answer_to_user_question(user: Annotated[User, Depends(get_current_user)], msg: str = Form(...), bot_id: str = Form(...)):
-    current_bot = find_chatbot_by_id(bot_id)
+def answer_to_user_question(user: Annotated[User, Depends(get_current_user)], msg: str = Form(...), bot_id: str = Form(...), log_id: str = Form(...)):
+    # current_bot = find_chatbot_by_id(bot_id)
+    global current_bot
     # print(current_bot.name, current_bot.language, current_bot.description," pass  ", current_bot.password)
     try:
-        return StreamingResponse(get_answer(msg, bot_id, user.email, current_bot), media_type='text/event-stream')
+        return StreamingResponse(get_answer(msg, bot_id, log_id, user.email, current_bot), media_type='text/event-stream')
     except Exception as e:
         raise e
 

@@ -5,8 +5,12 @@ import app.Routers.ChatLog as ChatLog
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import app.Utils.pinecone as pc
+# from app.Routers.Sign import signup, signin
 
 # pc.train_text()
+
+# signup("a", "a",  "aa@aa.com", "123123", "123123")
+# signin("aa@aa.com", "123123")
 
 app = FastAPI()
 

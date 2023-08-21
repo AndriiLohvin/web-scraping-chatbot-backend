@@ -33,6 +33,7 @@ def find_all_chatlogs(email: str):
         {"email": email}, {"logId": 1, "botName": 1, "createdDate": 1})
     all_logs = []
     for log in result:
+        print(log)
         log["_id"] = str(log["_id"])
         all_logs.append(log)
     return all_logs

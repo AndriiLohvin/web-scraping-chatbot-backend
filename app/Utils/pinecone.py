@@ -208,25 +208,31 @@ def set_prompt(new_prompt: str):
 def get_context(msg: str, namespace: str, email: str, current_bot: Chatbot):
     print("message" + msg)
     matching_metadata = []
+    similarity_value_limit = 0.8
+    results = tuple()
     if current_bot.contextBehavior != "gpt":
         print("here")
         db = Pinecone.from_existing_index(
             index_name=index_name, namespace=namespace, embedding=embeddings)
-        results = db.similarity_search(msg, k=2)
+        results = db.similarity_search_with_score(msg, k=2)
         for result in results:
-            print("embedding_id: ", result.metadata['source'])
-            matching_metadata.append(result.metadata['source'])
+            # print("embedding_id: ", result.metadata['source'])
+            if result[1] >= similarity_value_limit:
+                matching_metadata.append(result[0].metadata['source'])
     matching_metadata = list(set(matching_metadata))
     # web_db = Pinecone.from_existing_index(
     #     index_name=index_name, embedding=embeddings)
     # web_results = web_db.similarity_search(msg, k=2)
     global context
     context = ""
+    print("context = ", context)
     # for web_result in web_results:
     #     context += f"\n\n{web_result.page_content}"
     for result in results:
-        context += f"\n\n{result.page_content}"
+        if result[1] >= similarity_value_limit:
+            context += f"\n\n{result[0].page_content}"
     print(len(context)/4)
+    print("sourceDiscloser: ", current_bot.sourceDiscloser)
     if current_bot.sourceDiscloser == False:
         matching_metadata = []
     return {"context": context, "metadata": matching_metadata}
@@ -277,7 +283,7 @@ def get_answer(msg: str, namespace: str, log_id: str, email: str, current_bot: C
                 final += string
     except Exception as e:
         print(e)
-        
+
     add_new_message_to_db(logId=log_id, botId=namespace,
                           msg=Message(content=msg, role="user"), email=email)
     add_new_message_to_db(logId=log_id, botId=namespace,

@@ -19,6 +19,13 @@ current_bot = Chatbot()
 
 @router.post("/add-new-chatbot")
 async def add_new_chatbot_api(user: Annotated[User, Depends(get_current_user)], model: AddNewBotModel):
+    # global current_bot
+    
+    
+    
+    
+    
+    # current_bot = 
     try:
         return add_new_chatbot(email=user.email, botmodel=model)
     except Exception as e:
@@ -39,6 +46,7 @@ def find_chatbot_by_id_api(id: ChatBotIdModel, user: Annotated[User, Depends(get
     try:
         print("logid", id.log_id)
         current_bot = find_chatbot_by_id(id.id)
+        print("sourceDis", current_bot.sourceDiscloser)
         update_chatbot_by_id(id.id, id.log_id)
         return current_bot
     except Exception as e:
@@ -128,7 +136,7 @@ def find_similar_context(user: Annotated[User, Depends(get_current_user)], msg: 
 def answer_to_user_question(user: Annotated[User, Depends(get_current_user)], msg: str = Form(...), bot_id: str = Form(...), log_id: str = Form(...)):
     # current_bot = find_chatbot_by_id(bot_id)
     global current_bot
-    # print(current_bot.name, current_bot.language, current_bot.description," pass  ", current_bot.password)
+    print(current_bot.name, current_bot.language, current_bot.description," pass  ", current_bot.password)
     try:
         return StreamingResponse(get_answer(msg, bot_id, log_id, user.email, current_bot), media_type='text/event-stream')
     except Exception as e:

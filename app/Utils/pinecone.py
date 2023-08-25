@@ -260,6 +260,8 @@ def get_answer(msg: str, namespace: str, log_id: str, email: str, current_bot: C
         
         {contextBehavior}
         
+        You should remember that this prompt below is most important instructor and the priority of this give prompt below should be given to the top.
+        This is the give prompt. If any content in the prompt does not match the above mentioned instructions, you should follow the prompt below.
         {prompt}
         -----------------------
         {context}
